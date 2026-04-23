@@ -1,6 +1,7 @@
 import PySimpleGUI as sg
 from file import File, format_error
-
+import random
+from solver import solve
 
 class Application:
     def __init__(self):
@@ -9,8 +10,11 @@ class Application:
 
     def _create_window(self):
         layout = [
-            [sg.Menu([["File", ["Open", "Save", "Save As", "Exit"]]])],
-            [sg.Multiline("", key="-TEXT-", size=(30, 15), disabled=True)]
+            [sg.Menu([["File", ["Open", "Save", "Save As", "Generate", "Exit"]]])],
+
+            [sg.Multiline("", key="-TEXT-", size=(30, 15), disabled=True)],
+
+            [sg.Button("Solve", key="-SOLVE-")]
         ]
         return sg.Window("n-puzzle", layout, resizable=True)
 
@@ -24,11 +28,22 @@ class Application:
             if event == "Open":
                 self._open_file()
 
+            elif event == "Generate":
+                self._generate_matrix()
+
             elif event == "Save":
                 self._save_file(values)
 
             elif event == "Save As":
                 self._save_file_as(values)
+
+            elif event == "-SOLVE-":
+                if self.file:
+                    n = self.file.matrix_size
+                    matrix = self.file.matrix
+                    solve(matrix)
+                else:
+                    sg.popup("No file loaded")
 
         self.window.close()
 
@@ -52,7 +67,7 @@ class Application:
         try:
             self.file = File(path)
             self.file.load()
-            self.window["-TEXT-"].update(self.file.content)
+            self.window["-TEXT-"].update(format_matrix(self.file.matrix))
 
         except Exception as e:
             sg.popup_error(format_error(str(e)))
@@ -93,3 +108,38 @@ class Application:
             sg.popup("File saved.")
         except Exception as e:
             sg.popup_error(format_error(str(e)))
+
+    def _generate_matrix(self):
+        n = sg.popup_get_text("Matrix size (n x n):", default_text="3")
+
+        if not n:
+            return
+
+        try:
+            n = int(n)
+            if n <= 0:
+                raise ValueError()
+
+        except ValueError:
+            sg.popup_error("Invalid size")
+            return
+
+        # generate a shuffled valid permutation
+        values = list(range(n * n))
+        random.shuffle(values)
+
+        matrix = [
+            values[i * n:(i + 1) * n]
+            for i in range(n)
+        ]
+
+        # wrap into File object (so solver still works)
+        self.file = File.__new__(File)  # bypass constructor
+        self.file._file_path = None
+        self.file._content = ""
+        self.file._matrix_size = n
+        self.file._matrix = matrix
+
+        self.window["-TEXT-"].update(format_matrix(matrix))
+def format_matrix(matrix):
+    return "\n".join(" ".join(map(str, row)) for row in matrix)

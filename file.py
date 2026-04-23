@@ -13,6 +13,30 @@ class File:
         self._matrix = None
         self._validate_file()
 
+    # ---------- properties ---------- #
+
+    @property
+    def file_path(self):
+        return self._file_path
+
+    @property
+    def content(self):
+        return self._content
+
+    @property
+    def matrix_size(self):
+        return self._matrix_size
+
+    @property
+    def matrix(self):
+        return self._matrix
+
+    @content.setter
+    def content(self, value: str):
+        if not isinstance(value, str):
+            raise ValueError("Content must be a string.")
+        self._content = value
+
     def _validate_file(self):
         if self._file_path.suffix != ".txt":
             raise ValueError(f"'{self._file_path.name}' is not a .txt file.")
