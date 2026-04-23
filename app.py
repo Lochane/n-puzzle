@@ -26,7 +26,7 @@ class Application:
             for c in range(n)]
             for r in range(n)
         ] if matrix else []
--
+
         grid_height = max(n * 3, 10) 
 
         layout = [
