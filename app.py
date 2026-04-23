@@ -26,9 +26,8 @@ class Application:
             for c in range(n)]
             for r in range(n)
         ] if matrix else []
-
-        # --- dynamic height logic ---
-        grid_height = max(n * 3, 10)   # scale with grid, minimum 10 lines
+-
+        grid_height = max(n * 3, 10) 
 
         layout = [
             [sg.Menu([["File", ["Open", "Save", "Save As", "Generate", "Exit"]]])],
@@ -81,7 +80,6 @@ class Application:
                 if self.file:
                     n = self.file.matrix_size
                     matrix = self.file.matrix
-                    print(matrix)
                     solve(matrix)
                 else:
                     sg.popup("No file loaded")
