@@ -16,6 +16,9 @@ class Application:
         self.window = self._create_window(default_matrix)
 
     def _create_window(self, matrix=None, location=(0, 0)):
+        title = "n-puzzle"
+        if self.file and self.file._file_path:
+            title = f"n-puzzle — {self.file._file_path}"
         n = len(matrix) if matrix else 0
 
         size_row = [
@@ -55,14 +58,14 @@ class Application:
                     write_only=True,
                     autoscroll=True,
                     disabled=True,
-                    text_color="white",
+                    text_color="blue4",
                     background_color="lightsteelblue"
                 ),
             ],
             [sg.Button("Solve", key="-SOLVE-")]
         ]
 
-        return sg.Window("n-puzzle", layout, resizable=False, finalize=True, location=location)
+        return sg.Window(title, layout, resizable=False, finalize=True, location=location)
 
     def _read_matrix_from_grid(self):
         if not self.file:
