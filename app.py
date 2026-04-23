@@ -3,21 +3,38 @@ from file import File, format_error
 import random
 from solver import solve
 
+MAX_SIZE = 20
+
 class Application:
     def __init__(self):
         self.file = None
         self.window = self._create_window()
 
-    def _create_window(self):
+    def _create_window(self, matrix=None):
+        n = len(matrix) if matrix else 0
+        grid = [
+            [sg.Input(str(matrix[r][c]) if matrix[r][c] != 0 else "",
+                    justification="center", size=(3, 2),
+                    font=("Helvetica", 20),
+                    key=(r, c), disabled=True, use_readonly_for_disable=True)
+            for c in range(n)]
+            for r in range(n)
+        ] if matrix else []
+
         layout = [
             [sg.Menu([["File", ["Open", "Save", "Save As", "Generate", "Exit"]]])],
-
-            [sg.Multiline("", key="-TEXT-", size=(30, 15), disabled=True)],
-
+            *grid,
             [sg.Button("Solve", key="-SOLVE-")]
         ]
-        return sg.Window("n-puzzle", layout, resizable=True)
+        return sg.Window("n-puzzle", layout, resizable=False, finalize=True)
 
+    def _update_grid(self, matrix):
+        self.window.close()
+        self.window = self._create_window(matrix)
+    def _clear_grid(self):
+        self.file = None
+        self.window.close()
+        self.window = self._create_window()
     def run(self):
         while True:
             event, values = self.window.read()
@@ -41,6 +58,7 @@ class Application:
                 if self.file:
                     n = self.file.matrix_size
                     matrix = self.file.matrix
+                    print(matrix)
                     solve(matrix)
                 else:
                     sg.popup("No file loaded")
@@ -67,10 +85,10 @@ class Application:
         try:
             self.file = File(path)
             self.file.load()
-            self.window["-TEXT-"].update(format_matrix(self.file.matrix))
-
+            self._update_grid(self.file.matrix)
         except Exception as e:
             sg.popup_error(format_error(str(e)))
+            self._clear_grid()
 
     def _save_file(self, values):
         if not self.file:
@@ -78,7 +96,6 @@ class Application:
             return
 
         try:
-            self.file.content = values["-TEXT-"]
             self.file.save()
             sg.popup("File saved.")
         except Exception as e:
@@ -103,14 +120,13 @@ class Application:
 
         try:
             self.file = File(path)
-            self.file.content = values["-TEXT-"]
             self.file.save()
             sg.popup("File saved.")
         except Exception as e:
             sg.popup_error(format_error(str(e)))
 
     def _generate_matrix(self):
-        n = sg.popup_get_text("Matrix size (n x n):", default_text="3")
+        n = sg.popup_get_text("Matrix size (n x n), maximum size of " + str(MAX_SIZE), default_text="3")
 
         if not n:
             return
@@ -119,12 +135,13 @@ class Application:
             n = int(n)
             if n <= 0:
                 raise ValueError()
+            if n > MAX_SIZE:
+                raise ValueError()
 
         except ValueError:
             sg.popup_error("Invalid size")
             return
 
-        # generate a shuffled valid permutation
         values = list(range(n * n))
         random.shuffle(values)
 
@@ -133,13 +150,10 @@ class Application:
             for i in range(n)
         ]
 
-        # wrap into File object (so solver still works)
-        self.file = File.__new__(File)  # bypass constructor
+        self.file = File.__new__(File)
         self.file._file_path = None
         self.file._content = ""
         self.file._matrix_size = n
         self.file._matrix = matrix
 
-        self.window["-TEXT-"].update(format_matrix(matrix))
-def format_matrix(matrix):
-    return "\n".join(" ".join(map(str, row)) for row in matrix)
+        self._update_grid(matrix)
