@@ -1,7 +1,7 @@
 NAME = npuzzle
 
 venv:
-	python -m venv .venv
+	python3 -m venv .venv
 
 install:
 	source .venv/bin/activate;\

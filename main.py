@@ -1,19 +1,5 @@
-import sys
-from pathlib import Path
-import numpy as np
+from app import Application
 
-if len(sys.argv) <= 1:
-	print ("Missing file!\nUsage: python3 main.py <path/to/puzzle/file.txt>")
-	exit(1)
-
-file_path = Path(sys.argv[1])
-if file_path.suffix != ".txt":
-	print(f"'{file_path.name}' is something else than a .txt file.")
-	exit(1)
-
-try:
-	with open(file_path) as file:
-		print(file)
-except Exception as e:
-	print(f"Unexpected error: {e}")
-	exit(1)
+if __name__ == "__main__":
+    app = Application()
+    app.run()
