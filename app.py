@@ -7,8 +7,12 @@ MAX_SIZE = 20
 
 class Application:
     def __init__(self):
-        self.file = None
         default_matrix = [[0] * 3 for _ in range(3)]
+        self.file = File.__new__(File)
+        self.file._file_path = None
+        self.file._content = ""
+        self.file._matrix_size = 3
+        self.file._matrix = default_matrix
         self.window = self._create_window(default_matrix)
 
     def _create_window(self, matrix=None, location=(0, 0)):
@@ -52,7 +56,7 @@ class Application:
                     autoscroll=True,
                     disabled=True,
                     text_color="white",
-                    background_color="darkblue"
+                    background_color="lightsteelblue"
                 ),
             ],
             [sg.Button("Solve", key="-SOLVE-")]
@@ -112,11 +116,15 @@ class Application:
         self.window = self._create_window(matrix)
     
     def _clear_grid(self):
-        self.file = None
-        location = self.window.current_location()
-        self.window.close()
         default_matrix = [[0] * 3 for _ in range(3)]
-        self.window = self._create_window(default_matrix)
+        self.file = File.__new__(File)
+        self.file._file_path = None
+        self.file._content = ""
+        self.file._matrix_size = 3
+        self.file._matrix = default_matrix
+        x, y = self.window.current_location()
+        self.window.close()
+        self.window = self._create_window(default_matrix, location=(x, y - 30))
 
     def run(self):
         while True:
@@ -179,6 +187,10 @@ class Application:
     def _save_file(self, values):
         if not self.file:
             sg.popup("No file open. Use Save As.")
+            return
+
+        if not self.file._file_path:
+            sg.popup("No file path set. Use Save As.")
             return
 
         try:
