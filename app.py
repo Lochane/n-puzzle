@@ -1,6 +1,5 @@
 import PySimpleGUI as sg
 from file import File, format_error
-from pathlib import Path
 import random
 from solver import solve
 
@@ -13,20 +12,43 @@ class Application:
 
     def _create_window(self, matrix=None):
         n = len(matrix) if matrix else 0
+
         grid = [
-            [sg.Input(str(matrix[r][c]) if matrix[r][c] != 0 else "",
-                    justification="center", size=(3, 2),
-                    font=("Helvetica", 20),
-                    key=(r, c), disabled=True, use_readonly_for_disable=True)
+            [sg.Input(
+                str(matrix[r][c]) if matrix[r][c] != 0 else "",
+                justification="center",
+                size=(3, 2),
+                font=("Helvetica", 20),
+                key=(r, c),
+                disabled=True,
+                use_readonly_for_disable=True
+            )
             for c in range(n)]
             for r in range(n)
         ] if matrix else []
 
+        # --- dynamic height logic ---
+        grid_height = max(n * 3, 10)   # scale with grid, minimum 10 lines
+
         layout = [
             [sg.Menu([["File", ["Open", "Save", "Save As", "Generate", "Exit"]]])],
-            *grid,
+            [
+                sg.Column(grid, vertical_alignment="top"),
+                sg.VSeparator(),
+                sg.Multiline(
+                    size=(60, grid_height),
+                    key="-OUT-",
+                    reroute_stdout=True,
+                    write_only=True,
+                    autoscroll=True,
+                    disabled=True,
+                    text_color="white",
+                    background_color="darkblue"
+                )
+            ],
             [sg.Button("Solve", key="-SOLVE-")]
         ]
+
         return sg.Window("n-puzzle", layout, resizable=False, finalize=True)
 
     def _update_grid(self, matrix):
@@ -120,7 +142,7 @@ class Application:
             return
 
         try:
-            self.file._file_path = Path(path)
+            self.file = File(path)
             self.file.save()
             sg.popup("File saved.")
         except Exception as e:
