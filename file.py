@@ -47,10 +47,17 @@ class File:
 
         self._parse()
 
+    def _build_content(self) -> str:
+        if self._matrix is None:
+            return self._content
+        rows = "\n".join(" ".join(str(x) for x in row) for row in self._matrix)
+        return f"{self._matrix_size}\n{rows}\n"
+
     def save(self, new_path: str = None):
         path = Path(new_path) if new_path else self._file_path
+        content = self._build_content()
         with open(path, "w", encoding="utf-8") as file:
-            file.write(self._content)
+            file.write(content)
 
     # ---------- parser ---------- #
 

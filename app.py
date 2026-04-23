@@ -1,5 +1,6 @@
 import PySimpleGUI as sg
 from file import File, format_error
+from pathlib import Path
 import random
 from solver import solve
 
@@ -119,7 +120,7 @@ class Application:
             return
 
         try:
-            self.file = File(path)
+            self.file._file_path = Path(path)
             self.file.save()
             sg.popup("File saved.")
         except Exception as e:
