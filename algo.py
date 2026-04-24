@@ -5,7 +5,7 @@ class A_star:
 	def __init__(self, input=None):
 
 		if input is None:
-			content = "0 10 5 7\n11 14 4 8\n1 2 6 13\n12 3 15 9"
+			content = "3 2 6\n1 4 0\n8 7 5\n"
 			rows = [line.strip() for line in content.strip().splitlines() if line.strip()]
 			self.input = np.array([list(map(int, row.split())) for row in rows], dtype=int)
 		else:
@@ -103,6 +103,16 @@ class A_star:
 			else:
 				return bool(inv_count & 1)
 
+	def reconstruct_path(self, goal_node):
+		path = []
+		current = goal_node
+
+		while current is not None:
+			path.append(current['state'])
+			current = current['parent']
+		
+		return path[::-1]
+
 	def run(self):
 		goal = self.snake_solution(len(self.input))
 		state = tuple(self.input.flatten())
@@ -119,7 +129,7 @@ class A_star:
 			current_node = open_dict[current_state]
 			if np.array_equal(current_node['state'], goal) is True:
 				print("succes")
-				return
+				return self.reconstruct_path(current_node)
 			
 			closed_set.add(current_state)
 
