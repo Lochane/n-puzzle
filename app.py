@@ -160,6 +160,7 @@ class Application:
         self.window = self._create_window(default_matrix, location=(x, y - 30))
 
     def run(self):
+        self._generate_matrix()
         while True:
             event, values = self.window.read()
 

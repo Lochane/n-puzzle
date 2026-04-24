@@ -118,7 +118,7 @@ class A_star:
 		state = tuple(self.input.flatten())
 		if self.is_solvable(self.input.flatten(), goal.flatten()) != True:
 			print("Puzzle not solvable.")
-			exit(0)
+			return
 		start_node = self.create_node(state=self.input, g=0, h=self.manhattan_distance(self.input, goal))
 		open_list = [(start_node['f'], state)]
 		open_dict = {state: start_node}
