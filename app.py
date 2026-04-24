@@ -26,7 +26,7 @@ class Application:
                 str(n) if n else "",
                 justification="center",
                 size=(3, 1),
-                font=("Helvetica", 18),
+                font=("Courier New", 18),
                 key="size",
             ),
             sg.Button("Resize", key="-RESIZE-", font=("Helvetica", 12))
@@ -37,7 +37,7 @@ class Application:
                 str(matrix[r][c]) if matrix[r][c] != 0 else "",
                 justification="center",
                 size=(3, 1),
-                font=("Helvetica", 18),
+                font=("Courier New", 18),
                 key=(r, c),
             )
             for c in range(n)]
@@ -52,20 +52,29 @@ class Application:
                 sg.Column(full_grid, vertical_alignment="top"),
                 sg.VSeparator(),
                 sg.Multiline(
-                    size=(25, 50),
+                    size=(20, 20),
+                    font=("Courier New", 12),
                     key="-OUT-",
-                    reroute_stdout=True,
-                    write_only=True,
                     autoscroll=True,
                     disabled=True,
-                    text_color="blue4",
-                    background_color="lightsteelblue"
+                    reroute_stdout=True,
+                    background_color="lightsteelblue",
+                    expand_x=True,
+                    expand_y=True,
                 ),
             ],
             [sg.Button("Solve", key="-SOLVE-")]
         ]
+        win = sg.Window(title, layout, finalize=True, location=location, resizable=True)
+        return win
 
-        return sg.Window(title, layout, finalize=True, location=location)
+    def _log(self, message, color="blue4"):
+        out = self.window["-OUT-"]
+        out.reroute_stdout = False
+        out.update(disabled=False)
+        out.print(message, text_color=color)
+        out.update(disabled=True)
+        out.reroute_stdout = True
 
     def _validate_matrix(self):
         matrix = self.file._matrix
@@ -99,7 +108,7 @@ class Application:
                 try:
                     row.append(int(val) if val else 0)
                 except ValueError:
-                    row.append(0)
+                    row.append(val)
             matrix.append(row)
         self.file._matrix = matrix
 
@@ -178,11 +187,12 @@ class Application:
                     self._read_matrix_from_grid()
                     error = self._validate_matrix()
                     if error:
-                        print(f"Invalid matrix: {error}")
+                        self._log(f"Invalid matrix: {error}", color="red")
                     else:
+                        self._log("Solving...", color="green")
                         solve(self.file._matrix)
                 else:
-                    sg.popup("No file loaded")
+                    self._log("No file loaded", color="orange")
 
         self.window.close()
 
