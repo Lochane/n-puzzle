@@ -27,10 +27,10 @@ class Application:
                 str(n) if n else "",
                 justification="center",
                 size=(3, 1),
-                font=("Courier New", 18),
+                font=("Courier New", 14),
                 key="size",
             ),
-            sg.Button("Resize", key="-RESIZE-", font=("Helvetica", 12))
+            sg.Button("Resize", key="-RESIZE-", font=("Helvetica", 10))
         ] if matrix else []
 
         grid = [
@@ -38,7 +38,7 @@ class Application:
                 str(matrix[r][c]) if matrix[r][c] != 0 else "",
                 justification="center",
                 size=(3, 1),
-                font=("Courier New", 18),
+                font=("Courier New", 14),
                 key=(r, c),
             )
             for c in range(n)]
