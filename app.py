@@ -1,6 +1,7 @@
 import PySimpleGUI as sg
 from file import File, format_error
 import random
+import numpy as np
 from solver import solve
 
 MAX_SIZE = 20
@@ -47,7 +48,7 @@ class Application:
         full_grid = ([size_row] + grid) if matrix else []
 
         layout = [
-            [sg.Menu([["File", ["Open", "Save", "Save As", "Generate", "Exit"]]])],
+            [sg.Menu([["File", ["Open", "Save", "Save As", "Exit"]]])],
             [
                 sg.Column(full_grid, vertical_alignment="top"),
                 sg.VSeparator(),
@@ -63,7 +64,7 @@ class Application:
                     expand_y=True,
                 ),
             ],
-            [sg.Button("Solve", key="-SOLVE-")]
+            [sg.Button("Generate", key="-GENERATE-"), sg.Button("Solve", key="-SOLVE-")]
         ]
         win = sg.Window(title, layout, finalize=True, location=location, resizable=True)
         return win
@@ -79,7 +80,7 @@ class Application:
     def _validate_matrix(self):
         matrix = self.file._matrix
         n = self.file._matrix_size
-        expected = set(range(n * n))  # {0, 1, 2, ..., n²-1}
+        expected = set(range(n * n))
         found = set()
 
         for r in range(n):
@@ -168,7 +169,7 @@ class Application:
             if event == "Open":
                 self._open_file()
 
-            elif event == "Generate":
+            elif event == "-GENERATE-":
                 self._generate_matrix()
 
             elif event == "-RESIZE-":
@@ -190,7 +191,7 @@ class Application:
                         self._log(f"Invalid matrix: {error}", color="red")
                     else:
                         self._log("Solving...", color="green")
-                        solve(self.file._matrix)
+                        solve(np.array(self.file._matrix))
                 else:
                     self._log("No file loaded", color="orange")
 
@@ -240,8 +241,8 @@ class Application:
         win = sg.Window(
             "Save file",
             [[sg.Input(key="-FILE-"),
-              sg.FileSaveAs(file_types=(("Text Files", "*.txt"),))],
-             [sg.OK(), sg.Cancel()]],
+            sg.FileSaveAs(file_types=(("Text Files", "*.txt"),))],
+            [sg.OK(), sg.Cancel()]],
             modal=True
         )
 
@@ -254,29 +255,15 @@ class Application:
             return
 
         try:
-            self.file = File(path)
+            self.file._file_path = path
             self.file.save()
+            self.window.set_title(f"n-puzzle — {path}")
             sg.popup("File saved.")
         except Exception as e:
             sg.popup_error(format_error(str(e)))
 
     def _generate_matrix(self):
-        n = sg.popup_get_text("Matrix size (n x n), maximum size of " + str(MAX_SIZE), default_text="3")
-
-        if not n:
-            return
-
-        try:
-            n = int(n)
-            if n <= 0:
-                raise ValueError()
-            if n > MAX_SIZE:
-                raise ValueError()
-
-        except ValueError:
-            sg.popup_error("Invalid size")
-            return
-
+        n = self.file._matrix_size
         values = list(range(n * n))
         random.shuffle(values)
 
@@ -285,10 +272,9 @@ class Application:
             for i in range(n)
         ]
 
-        self.file = File.__new__(File)
-        self.file._file_path = None
-        self.file._content = ""
-        self.file._matrix_size = n
         self.file._matrix = matrix
 
-        self._update_grid(matrix)
+        for r in range(n):
+            for c in range(n):
+                val = matrix[r][c]
+                self.window[(r, c)].update(str(val) if val != 0 else "")
