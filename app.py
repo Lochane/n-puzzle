@@ -65,8 +65,28 @@ class Application:
             [sg.Button("Solve", key="-SOLVE-")]
         ]
 
-        return sg.Window(title, layout, resizable=False, finalize=True, location=location)
+        return sg.Window(title, layout, finalize=True, location=location)
 
+    def _validate_matrix(self):
+        matrix = self.file._matrix
+        n = self.file._matrix_size
+        expected = set(range(n * n))  # {0, 1, 2, ..., n²-1}
+        found = set()
+
+        for r in range(n):
+            for c in range(n):
+                val = matrix[r][c]
+                if not isinstance(val, int) or val < 0:
+                    return f"Invalid value at ({r}, {c}): {val}"
+                if val in found:
+                    return f"Duplicate value: {val}"
+                found.add(val)
+
+        missing = expected - found
+        if missing:
+            return f"Missing values: {sorted(missing)}"
+
+        return None  # all good
     def _read_matrix_from_grid(self):
         if not self.file:
             return
@@ -156,7 +176,11 @@ class Application:
             elif event == "-SOLVE-":
                 if self.file:
                     self._read_matrix_from_grid()
-                    solve(self.file._matrix)
+                    error = self._validate_matrix()
+                    if error:
+                        print(f"Invalid matrix: {error}")
+                    else:
+                        solve(self.file._matrix)
                 else:
                     sg.popup("No file loaded")
 
