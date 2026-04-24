@@ -19,4 +19,4 @@ from algo import A_star
 # 	exit(1)
 
 algo = A_star()
-algo.run()
+path = algo.run()
