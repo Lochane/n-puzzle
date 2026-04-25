@@ -2,7 +2,7 @@ import numpy as np
 import heapq
 
 class A_star:
-	def __init__(self, input=None):
+	def __init__(self, input=None, N=0):
 
 		if input is None:
 			content = "3 2 6\n1 4 0\n8 7 5\n"
@@ -10,20 +10,21 @@ class A_star:
 			self.input = np.array([list(map(int, row.split())) for row in rows], dtype=int)
 		else:
 			self.input = input
+		self.N = len(self.input)
 
 	def snake_solution(self, input_len:int):
-		grid = [[-1] * input_len for _ in range(input_len)]
+		grid = [[-1] * self.N for _ in range(self.N)]
 		dir =[(0,1), (1,0), (0,-1), (-1,0)]
 		dir_index = 0
 		row, col = 0, 0
 
-		for value in range(1, input_len*input_len):
+		for value in range(1, self.N * self.N):
 			grid[row][col] = value
 
 			next_row = row + dir[dir_index][0]
 			next_col = col + dir[dir_index][1]
 			
-			if (next_row == input_len or next_col == input_len or grid[next_row][next_col] != -1):
+			if (next_row == self.N or next_col == self.N or grid[next_row][next_col] != -1):
 				dir_index = (dir_index + 1) % 4
 
 				next_row = row + dir[dir_index][0]
@@ -34,14 +35,13 @@ class A_star:
 		grid[row][col] = 0
 		return np.asarray(grid)
 
-	def manhattan_distance(self, state: np.ndarray, goal: np.ndarray):
+	def manhattan_distance(self, state: np.ndarray, goal_pos: dict):
 		h = 0
-		for row in state:
-			for value in row:
+		for i, row in enumerate(state):
+			for j, value in enumerate(row):
 				if value != 0:
-					pos1 = np.argwhere(state == value)[0] 
-					pos2 = np.argwhere(goal == value)[0] 
-					h += abs(pos1[0] - pos2[0]) + abs(pos1[1] - pos2[1])
+					goal_i, goal_j = goal_pos[value]
+					h += abs(i - goal_i) + abs(j - goal_j)
 		return h
 
 	def create_node(self, state: tuple, g: float = float('inf'), h:float = 0.0, parent: dict = None ) -> dict:
@@ -74,34 +74,26 @@ class A_star:
 		count = 0
 		for i in range(0, N):
 			for j in range(i + 1, N):
-				if (arr[j] and arr[i] and arr[i] > arr[j]):
+				if (arr[i] > arr[j]):
 					count += 1
 		return count
 
 
 	def is_solvable(self, init_state, goal):
 		goal_index = {}
-		init_index = init_state.copy()
-		N = len(init_state)
+		init_index = init_state.flatten().copy()
+		N = len(init_index)
 		for i in range(0, N):
-			goal_index[goal[i]] = i
-		
+			goal_index[goal.flatten()[i]] = i
 		for i in range(0, N):
-			init_index[i] = goal_index.get(init_state[i])
-		
-		inv_count = self.get_inv_count(init_index, N)
-		if (N & 1):
-			return not (inv_count & 1)
-		
-		else:
-			blank_pos = np.argwhere(self.input == 0)[0]
-			row, _ = blank_pos
-			blank_pos_bot = ((len(self.input)) - row)
+			init_index[i] = goal_index.get(init_index[i])
 
-			if (blank_pos_bot & 1):
-				return not (inv_count & 1)
-			else:
-				return bool(inv_count & 1)
+		inv_count = self.get_inv_count(init_index, N)
+		blank_init_x, blank_init_y  = np.argwhere(init_state == 0)[0]
+		blank_goal_x, blank_goal_y  = np.argwhere(goal == 0)[0]
+		manhattan_blank = abs(blank_init_x - blank_goal_x) + abs(blank_init_y - blank_goal_y)
+		return (inv_count + manhattan_blank) % 2 == 0
+
 
 	def reconstruct_path(self, goal_node):
 		path = []
@@ -113,18 +105,25 @@ class A_star:
 		
 		return path[::-1]
 
+	def pos_dict(self, arr:np.ndarray):
+		pos = {}
+		for i, row in enumerate(arr):
+			for j, value in enumerate(row):
+				pos[value] = i , j
+		return pos
+
 	def run(self):
-		goal = self.snake_solution(len(self.input))
+		goal = self.snake_solution(self.N)
 		state = tuple(self.input.flatten())
-		if self.is_solvable(self.input.flatten(), goal.flatten()) != True:
+		if self.is_solvable(self.input, goal) != True:
 			print("Puzzle not solvable.")
 			return
-		start_node = self.create_node(state=self.input, g=0, h=self.manhattan_distance(self.input, goal))
+		goal_pos = self.pos_dict(goal)
+		start_node = self.create_node(state=self.input, g=0, h=self.manhattan_distance(self.input, goal_pos))
 		open_list = [(start_node['f'], state)]
 		open_dict = {state: start_node}
 		closed_set = set()
-		while open_list :
-
+		while open_list:
 			_, current_state = heapq.heappop(open_list)
 			current_node = open_dict[current_state]
 			if np.array_equal(current_node['state'], goal) is True:
@@ -137,7 +136,7 @@ class A_star:
 				neighbor_tuple = tuple(neighbor_node.flatten())
 				if neighbor_tuple in closed_set:
 					continue
-				heuristic = self.manhattan_distance(neighbor_node, goal)
+				heuristic = self.manhattan_distance(neighbor_node, goal_pos)
 				cost = current_node['g'] + 1
 
 				if neighbor_tuple not in open_dict:
