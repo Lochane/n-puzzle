@@ -136,8 +136,6 @@ class A_star:
 			if np.array_equal(current_node['state'], goal) is True:
 				print("succes")
 				path = self.reconstruct_path(current_node)
-				dict = {'count_node': count_node,'max_node': max_node,'nb_moves': len(path) - 1 ,'path': path, }
-				print(dict)
 				return {'count_node': count_node,'max_node': max_node,'nb_moves': len(path) - 1 ,'path': path, }
 			
 			closed_set.add(current_state)
