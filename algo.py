@@ -123,12 +123,22 @@ class A_star:
 		open_list = [(start_node['f'], state)]
 		open_dict = {state: start_node}
 		closed_set = set()
+		
+		count_node = 1
+		max_node = 1
+		current_size = 0
+		
 		while open_list:
 			_, current_state = heapq.heappop(open_list)
+			if current_state in closed_set:
+				continue
 			current_node = open_dict[current_state]
 			if np.array_equal(current_node['state'], goal) is True:
 				print("succes")
-				return self.reconstruct_path(current_node)
+				path = self.reconstruct_path(current_node)
+				dict = {'count_node': count_node,'max_node': max_node,'nb_moves': len(path) - 1 ,'path': path, }
+				print(dict)
+				return {'count_node': count_node,'max_node': max_node,'nb_moves': len(path) - 1 ,'path': path, }
 			
 			closed_set.add(current_state)
 
@@ -143,11 +153,16 @@ class A_star:
 					neighbor = self.create_node(state=neighbor_node, g=cost, h=heuristic, parent=current_node)
 					heapq.heappush(open_list, (neighbor['f'], neighbor_tuple))
 					open_dict[neighbor_tuple] = neighbor
+					
+					count_node += 1
+					current_size = len(closed_set) + len(open_dict)
+					if current_size > max_node:
+						max_node = current_size
 				
 				elif cost < open_dict[neighbor_tuple]['g']:
 					neighbor = open_dict[neighbor_tuple]
 					neighbor['g'] = cost
 					neighbor['f'] = cost + neighbor['h']
 					neighbor['parent'] = current_node
-		print('not succes')
+					heapq.heappush(open_list,((neighbor['f'], neighbor_tuple)))
 		return
