@@ -35,6 +35,15 @@ class A_star:
 		grid[row][col] = 0
 		return np.asarray(grid)
 
+	def hamming_distance(self,  state: np.ndarray, goal_pos: dict):
+		h = 0
+		for i, row in enumerate(state):
+			for j, value in enumerate(row):
+				if value != 0:
+					if goal_pos[value] != (i, j):
+						h += 1
+		return h
+
 	def manhattan_distance(self, state: np.ndarray, goal_pos: dict):
 		h = 0
 		for i, row in enumerate(state):
@@ -119,7 +128,8 @@ class A_star:
 			print("Puzzle not solvable.")
 			return
 		goal_pos = self.pos_dict(goal)
-		start_node = self.create_node(state=self.input, g=0, h=self.manhattan_distance(self.input, goal_pos))
+		# start_node = self.create_node(state=self.input, g=0, h=self.manhattan_distance(self.input, goal_pos))
+		start_node = self.create_node(state=self.input, g=0, h=self.hamming_distance(self.input, goal_pos))
 		open_list = [(start_node['f'], state)]
 		open_dict = {state: start_node}
 		closed_set = set()
@@ -144,7 +154,8 @@ class A_star:
 				neighbor_tuple = tuple(neighbor_node.flatten())
 				if neighbor_tuple in closed_set:
 					continue
-				heuristic = self.manhattan_distance(neighbor_node, goal_pos)
+				# heuristic = self.manhattan_distance(neighbor_node, goal_pos)
+				heuristic = self.hamming_distance(neighbor_node, goal_pos)
 				cost = current_node['g'] + 1
 
 				if neighbor_tuple not in open_dict:
