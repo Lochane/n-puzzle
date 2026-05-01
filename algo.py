@@ -11,6 +11,7 @@ class A_star:
 		else:
 			self.input = input
 		self.N = len(self.input)
+		self.goal_index = {}
 
 	def snake_solution(self, input_len:int):
 		grid = [[-1] * self.N for _ in range(self.N)]
@@ -53,6 +54,22 @@ class A_star:
 					h += abs(i - goal_i) + abs(j - goal_j)
 		return h
 
+	def linear_conflict(self, state: np.ndarray, goal_pos: dict):
+		h = 0
+		state_index = state.flatten().copy()
+		N_flat = len(state_index)
+		for i in range(0, N_flat):
+			state_index[i] = self.goal_index.get(state_index[i])
+		state_index = state_index.reshape(self.N, -1)
+		print(self.goal_index)
+		for i in range(0, self.N):
+			for j in range(0, self.N):
+				for h in range(j + 1, self.N):
+					pass
+
+		return h
+
+
 	def create_node(self, state: tuple, g: float = float('inf'), h:float = 0.0, parent: dict = None ) -> dict:
 		return {
 			'state': state,
@@ -89,13 +106,12 @@ class A_star:
 
 
 	def is_solvable(self, init_state, goal):
-		goal_index = {}
 		init_index = init_state.flatten().copy()
 		N = len(init_index)
 		for i in range(0, N):
-			goal_index[goal.flatten()[i]] = i
+			self.goal_index[goal.flatten()[i]] = i
 		for i in range(0, N):
-			init_index[i] = goal_index.get(init_index[i])
+			init_index[i] = self.goal_index.get(init_index[i])
 
 		inv_count = self.get_inv_count(init_index, N)
 		blank_init_x, blank_init_y  = np.argwhere(init_state == 0)[0]
@@ -123,22 +139,25 @@ class A_star:
 
 	def run(self):
 		goal = self.snake_solution(self.N)
+		print(goal)
 		state = tuple(self.input.flatten())
 		if self.is_solvable(self.input, goal) != True:
 			print("Puzzle not solvable.")
 			return
 		goal_pos = self.pos_dict(goal)
 		# start_node = self.create_node(state=self.input, g=0, h=self.manhattan_distance(self.input, goal_pos))
-		start_node = self.create_node(state=self.input, g=0, h=self.hamming_distance(self.input, goal_pos))
+		# start_node = self.create_node(state=self.input, g=0, h=self.hamming_distance(self.input, goal_pos))
+		start_node = self.create_node(state=self.input, g=0, h=self.linear_conflict(self.input, goal_pos))
+		return
 		open_list = [(start_node['f'], state)]
 		open_dict = {state: start_node}
 		closed_set = set()
 		
 		count_node = 1
 		max_node = 1
-		current_size = 0
 		
 		while open_list:
+			current_size = 0
 			_, current_state = heapq.heappop(open_list)
 			if current_state in closed_set:
 				continue
