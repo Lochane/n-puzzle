@@ -2,18 +2,32 @@ import numpy as np
 import heapq
 
 class A_star:
-	def __init__(self, input=None, N=0):
+	def __init__(self, input=None):
+		# if input is None:
+		# 	content = "3 2 6\n1 4 0\n8 7 5\n"
+		# 	rows = [line.strip() for line in content.strip().splitlines() if line.strip()]
+		# 	self.input = np.array([list(map(int, row.split())) for row in rows], dtype=int)
+		# else:
+		self.input = input
+		
+		self.heuristics = {
+			'manhattan': self.manhattan_distance,
+			'linear_conflict': self.linear_conflict,
+			'hamming': self.hamming_distance,
+		}
 
-		if input is None:
-			content = "3 2 6\n1 4 0\n8 7 5\n"
-			rows = [line.strip() for line in content.strip().splitlines() if line.strip()]
-			self.input = np.array([list(map(int, row.split())) for row in rows], dtype=int)
-		else:
-			self.input = input
 		self.N = len(self.input)
-		self.goal_index = {}
+		self.goal = self.snake_solution()
 
-	def snake_solution(self, input_len:int):
+		self.goal_index = {}
+		for i in range(0, len(self.input.flatten())):
+			self.goal_index[self.goal.flatten()[i]] = i
+		
+		self.goal_index_arr = np.zeros(self.N * self.N, dtype=np.int64)
+		for value, idx in self.goal_index.items():
+			self.goal_index_arr[value] = idx
+
+	def snake_solution(self):
 		grid = [[-1] * self.N for _ in range(self.N)]
 		dir =[(0,1), (1,0), (0,-1), (-1,0)]
 		dir_index = 0
@@ -55,19 +69,31 @@ class A_star:
 		return h
 
 	def linear_conflict(self, state: np.ndarray, goal_pos: dict):
-		h = 0
-		state_index = state.flatten().copy()
-		N_flat = len(state_index)
-		for i in range(0, N_flat):
-			state_index[i] = self.goal_index.get(state_index[i])
-		state_index = state_index.reshape(self.N, -1)
-		print(self.goal_index)
+		total_conflicts = 0
+		state_index = self.goal_index_arr[state]
 		for i in range(0, self.N):
+			candidats = []
 			for j in range(0, self.N):
-				for h in range(j + 1, self.N):
-					pass
-
-		return h
+				if state_index[i, j] // self.N == i:
+					candidats.append(state_index[i, j])
+			
+			N_candidats = len(candidats)
+			for a in range(0, N_candidats):
+				for b in range(a + 1, N_candidats):
+					if candidats[a] > candidats[b]:
+						total_conflicts += 1
+		
+		for j in range(0, self.N):
+			candidats = []
+			for i in range(0, self.N):
+				if state_index[i, j] % self.N == j:
+					candidats.append(state_index[i, j])
+			N_candidats = len(candidats)
+			for a in range(0, N_candidats):
+				for b in range(a + 1, N_candidats):
+					if candidats[a] > candidats[b]:
+						total_conflicts += 1
+		return self.manhattan_distance(state, goal_pos) + (2 * total_conflicts)
 
 
 	def create_node(self, state: tuple, g: float = float('inf'), h:float = 0.0, parent: dict = None ) -> dict:
@@ -106,14 +132,10 @@ class A_star:
 
 
 	def is_solvable(self, init_state, goal):
-		init_index = init_state.flatten().copy()
-		N = len(init_index)
-		for i in range(0, N):
-			self.goal_index[goal.flatten()[i]] = i
-		for i in range(0, N):
-			init_index[i] = self.goal_index.get(init_index[i])
+		init_index = self.goal_index_arr[init_state]
+		N = len(init_index.flatten())
 
-		inv_count = self.get_inv_count(init_index, N)
+		inv_count = self.get_inv_count(init_index.flatten(), N)
 		blank_init_x, blank_init_y  = np.argwhere(init_state == 0)[0]
 		blank_goal_x, blank_goal_y  = np.argwhere(goal == 0)[0]
 		manhattan_blank = abs(blank_init_x - blank_goal_x) + abs(blank_init_y - blank_goal_y)
@@ -137,18 +159,14 @@ class A_star:
 				pos[value] = i , j
 		return pos
 
-	def run(self):
-		goal = self.snake_solution(self.N)
-		print(goal)
+	def run(self, heuristic='manhattan'):
+		h_func = self.heuristics[heuristic]
 		state = tuple(self.input.flatten())
-		if self.is_solvable(self.input, goal) != True:
+		if self.is_solvable(self.input, self.goal) != True:
 			print("Puzzle not solvable.")
 			return
-		goal_pos = self.pos_dict(goal)
-		# start_node = self.create_node(state=self.input, g=0, h=self.manhattan_distance(self.input, goal_pos))
-		# start_node = self.create_node(state=self.input, g=0, h=self.hamming_distance(self.input, goal_pos))
-		start_node = self.create_node(state=self.input, g=0, h=self.linear_conflict(self.input, goal_pos))
-		return
+		goal_pos = self.pos_dict(self.goal)
+		start_node = self.create_node(state=self.input, g=0, h=h_func(self.input, goal_pos))
 		open_list = [(start_node['f'], state)]
 		open_dict = {state: start_node}
 		closed_set = set()
@@ -157,12 +175,15 @@ class A_star:
 		max_node = 1
 		
 		while open_list:
+			if count_node > 5_000_000:
+				print(f"Abandon: {count_node} nœuds explorés sans trouver de solution")
+				return None
 			current_size = 0
 			_, current_state = heapq.heappop(open_list)
 			if current_state in closed_set:
 				continue
 			current_node = open_dict[current_state]
-			if np.array_equal(current_node['state'], goal) is True:
+			if np.array_equal(current_node['state'], self.goal) is True:
 				print("succes")
 				path = self.reconstruct_path(current_node)
 				return {'count_node': count_node,'max_node': max_node,'nb_moves': len(path) - 1 ,'path': path, }
@@ -173,11 +194,10 @@ class A_star:
 				neighbor_tuple = tuple(neighbor_node.flatten())
 				if neighbor_tuple in closed_set:
 					continue
-				# heuristic = self.manhattan_distance(neighbor_node, goal_pos)
-				heuristic = self.hamming_distance(neighbor_node, goal_pos)
-				cost = current_node['g'] + 1
 
+				cost = current_node['g'] + 1
 				if neighbor_tuple not in open_dict:
+					heuristic = h_func(neighbor_node, goal_pos)
 					neighbor = self.create_node(state=neighbor_node, g=cost, h=heuristic, parent=current_node)
 					heapq.heappush(open_list, (neighbor['f'], neighbor_tuple))
 					open_dict[neighbor_tuple] = neighbor
