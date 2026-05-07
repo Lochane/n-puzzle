@@ -2,9 +2,9 @@ import PySimpleGUI as sg
 from file import File, format_error
 import random
 import numpy as np
-from solver import solve
+from algo import Solver
 
-MAX_SIZE = 20
+MAX_SIZE = 8
 
 class Application:
     def __init__(self):
@@ -15,37 +15,40 @@ class Application:
         self.file._matrix_size = 3
         self.file._matrix = default_matrix
         self.window = self._create_window(default_matrix)
+        self.algo = Solver()
+        self.curr_path = None
 
     def _create_window(self, matrix=None, location=(0, 0)):
         title = "n-puzzle"
         if self.file and self.file._file_path:
             title = f"n-puzzle — {self.file._file_path}"
-        n = len(matrix) if matrix else 0
+        n = len(matrix) if matrix else 3
 
         size_row = [
             sg.Input(
-                str(n) if n else "",
+                str(n),
                 justification="center",
                 size=(3, 1),
                 font=("Courier New", 14),
                 key="size",
             ),
             sg.Button("Resize", key="-RESIZE-", font=("Helvetica", 10))
-        ] if matrix else []
+        ]
 
         grid = [
-            [sg.Input(
-                str(matrix[r][c]) if matrix[r][c] != 0 else "",
+            [sg.pin(sg.Input(
+                str(matrix[r][c]) if (matrix and r < len(matrix) and c < len(matrix[r]) and matrix[r][c] != 0) else "",
                 justification="center",
                 size=(3, 1),
                 font=("Courier New", 14),
                 key=(r, c),
-            )
-            for c in range(n)]
-            for r in range(n)
-        ] if matrix else []
+                visible=(r < n and c < n),
+            ))
+            for c in range(MAX_SIZE)]
+            for r in range(MAX_SIZE)
+        ]
 
-        full_grid = ([size_row] + grid) if matrix else []
+        full_grid = [size_row] + grid
 
         layout = [
             [sg.Menu([["File", ["Open", "Save", "Save As", "Exit"]]])],
@@ -64,10 +67,77 @@ class Application:
                     expand_y=True,
                 ),
             ],
-            [sg.Button("Generate", key="-GENERATE-"), sg.Button("Solve", key="-SOLVE-")]
+            [sg.Button("Generate", key="-GENERATE-"), sg.Button("Solve", key="-SOLVE-")],
+            [sg.pin(sg.Column([[sg.Text("Algorithm", size=(8, 1)), sg.OptionMenu(['A*', 'greedy_A*', 'uniform'], default_value='A*', key='-ALGO-', enable_events=True)]], key='-ALGO-ROW-'))],
+            [sg.pin(sg.Column([[sg.Text("Heuristic", size=(8, 1)), sg.OptionMenu(['manhattan', 'linear_conflict', 'hamming'], default_value='manhattan', key='-HEURISTIC-')]], key='-HEURISTIC-ROW-'))],
         ]
+
         win = sg.Window(title, layout, finalize=True, location=location, resizable=True)
         return win
+
+    def _apply_grid_visibility(self, n):
+        for r in range(MAX_SIZE):
+            for c in range(MAX_SIZE):
+                self.window[(r, c)].update(visible=(r < n and c < n))
+
+    def _resize_grid(self, values):
+        try:
+            n = int(values["size"])
+            if n <= 0 or n > MAX_SIZE:
+                raise ValueError()
+        except (ValueError, KeyError):
+            sg.popup_error("Invalid size")
+            return
+
+        old = self.file._matrix
+        old_n = self.file._matrix_size
+
+        matrix = [[0] * n for _ in range(n)]
+        for r in range(min(n, old_n)):
+            for c in range(min(n, old_n)):
+                matrix[r][c] = old[r][c]
+
+        self.file._matrix_size = n
+        self.file._matrix = matrix
+
+        self._apply_grid_visibility(n)
+        self._refresh_grid(matrix)
+
+    def _update_grid(self, matrix):
+        n = len(matrix)
+        self.file._matrix_size = n
+        self._apply_grid_visibility(n)
+        self._refresh_grid(matrix)
+        self.window["size"].update(str(n))
+
+    def _refresh_grid(self, matrix):
+        n = len(matrix)
+        for r in range(n):
+            for c in range(n):
+                val = matrix[r][c]
+                self.window[(r, c)].update(str(val) if val != 0 else "")
+
+    def _clear_grid(self):
+        default_matrix = [[0] * 3 for _ in range(3)]
+        self.file = File.__new__(File)
+        self.file._file_path = None
+        self.file._content = ""
+        self.file._matrix_size = 3
+        self.file._matrix = default_matrix
+        self._update_grid(default_matrix)
+
+    def _generate_matrix(self):
+        n = self.file._matrix_size
+        values = list(range(n * n))
+        random.shuffle(values)
+
+        matrix = [
+            values[i * n:(i + 1) * n]
+            for i in range(n)
+        ]
+
+        self.file._matrix = matrix
+        self._refresh_grid(matrix)
 
     def _log(self, message, color="blue4"):
         out = self.window["-OUT-"]
@@ -113,52 +183,6 @@ class Application:
             matrix.append(row)
         self.file._matrix = matrix
 
-    def _resize_grid(self, values):
-        try:
-            n = int(values["size"])
-            if n <= 0 or n > MAX_SIZE:
-                raise ValueError()
-        except (ValueError, KeyError):
-            sg.popup_error("Invalid size")
-            return
-
-        matrix = [[0] * n for _ in range(n)]
-
-        if self.file:
-            old = self.file._matrix
-            old_n = self.file._matrix_size
-            for r in range(min(n, old_n)):
-                for c in range(min(n, old_n)):
-                    matrix[r][c] = old[r][c]
-            self.file._matrix_size = n
-            self.file._matrix = matrix
-        else:
-            self.file = File.__new__(File)
-            self.file._file_path = None
-            self.file._content = ""
-            self.file._matrix_size = n
-            self.file._matrix = matrix
-
-        x, y = self.window.current_location()
-        self.window.close()
-        self.window = self._create_window(matrix)
-
-    def _update_grid(self, matrix):
-        x, y = self.window.current_location()
-        self.window.close()
-        self.window = self._create_window(matrix)
-    
-    def _clear_grid(self):
-        default_matrix = [[0] * 3 for _ in range(3)]
-        self.file = File.__new__(File)
-        self.file._file_path = None
-        self.file._content = ""
-        self.file._matrix_size = 3
-        self.file._matrix = default_matrix
-        x, y = self.window.current_location()
-        self.window.close()
-        self.window = self._create_window(default_matrix, location=(x, y - 30))
-
     def run(self):
         self._generate_matrix()
         while True:
@@ -183,7 +207,9 @@ class Application:
             elif event == "Save As":
                 self._read_matrix_from_grid()
                 self._save_file_as(values)
-
+            elif event == '-ALGO-':
+                is_uniform = values['-ALGO-'] == 'uniform'
+                self.window['-HEURISTIC-ROW-'].update(visible=not is_uniform)
             elif event == "-SOLVE-":
                 if self.file:
                     self._read_matrix_from_grid()
@@ -192,7 +218,9 @@ class Application:
                         self._log(f"Invalid matrix: {error}", color="red")
                     else:
                         self._log("Solving...", color="green")
-                        solve(np.array(self.file._matrix))
+                        algorithm = values['-ALGO-']
+                        heuristic = values['-HEURISTIC-']
+                        self.curr_path = self.algo.run(np.array(self.file._matrix), algorithm=algorithm, heuristic=heuristic)
                 else:
                     self._log("No file loaded", color="orange")
 
