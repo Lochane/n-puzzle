@@ -2,10 +2,13 @@ import PySimpleGUI as sg
 from file import File, format_error
 import random
 import numpy as np
+import threading
 from algo import Solver
 
 MAX_SIZE = 8
-
+PLAYBACK_MIN_MS = 10
+PLAYBACK_MAX_MS = 200
+PLAYBACK_SPEED_SCALE = 200  # move count at which max speed is reached
 class Application:
 
     # ==========================INIT==========================
@@ -99,11 +102,14 @@ class Application:
             [sg.Button("Generate", key="-GENERATE-"), sg.Checkbox("Solvable only", default=True, key="-SOLVABLE-"), sg.Button("Solve", key="-SOLVE-")],
             [sg.pin(sg.Column([[sg.Text("Algorithm", size=(8, 1)), sg.OptionMenu(['A*', 'greedy_A*', 'uniform'], default_value='A*', key='-ALGO-', enable_events=True)]], key='-ALGO-ROW-'))],
             [sg.pin(sg.Column([[sg.Text("Heuristic", size=(8, 1)), sg.OptionMenu(['manhattan', 'linear_conflict', 'hamming'], default_value='manhattan', key='-HEURISTIC-')]], key='-HEURISTIC-ROW-'))],
+            [sg.pin(sg.Column([
+                [sg.ProgressBar(max_value=100, size=(30, 10), key='-PROGRESS-', expand_x=True)]
+            ], key='-PROGRESS-ROW-', visible=False, expand_x=True))],
         ]
 
         win = sg.Window(title, layout, finalize=True, location=location, resizable=True)
+        win['-PROGRESS-'].Widget.config(mode='indeterminate')
         return win
-
     def _log(self, message, color="blue4"):
         out = self.window["-OUT-"]
         out.reroute_stdout = False
@@ -223,8 +229,9 @@ class Application:
         n = self.file._matrix_size
 
         if solvable:
-            self.algo.N = n
-            matrix = self.algo.snail_solution().tolist()
+            solver = Solver()
+            solver.N = n
+            matrix = solver.snail_solution().tolist()
             pos = next((r, c) for r in range(n) for c in range(n) if matrix[r][c] == 0)
             moves = n * n * 20
             directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
@@ -247,11 +254,13 @@ class Application:
 
     #==========================PLAYBACK==========================
 
+
     def _playback_timeout(self):
         if not self.curr_path:
-            return 300
+            return PLAYBACK_MAX_MS
         steps = len(self.curr_path) - 1
-        return max(50, min(600, int(600 - (steps / 200) * 550)))
+        t = PLAYBACK_MAX_MS - (steps / PLAYBACK_SPEED_SCALE) * (PLAYBACK_MAX_MS - PLAYBACK_MIN_MS)
+        return max(PLAYBACK_MIN_MS, min(PLAYBACK_MAX_MS, int(t)))
 
     def _playback_goto(self, step):
         steps = len(self.curr_path) - 1
@@ -316,7 +325,11 @@ class Application:
             sg.popup("File saved.")
         except Exception as e:
             sg.popup_error(format_error(str(e)))
+    # ==========================SOLVER THREAD==========================
 
+    def _solve_thread(self, matrix, algorithm, heuristic):
+        result = self.algo.run(matrix, algorithm=algorithm, heuristic=heuristic)
+        self.window.write_event_value('-SOLVE-DONE-', result)
     # ==========================MAIN LOOP==========================
 
     def run(self):
@@ -358,22 +371,35 @@ class Application:
                         self._log("Solving...", color="green")
                         algorithm = values['-ALGO-']
                         heuristic = values['-HEURISTIC-']
-                        result = self.algo.run(np.array(self.file._matrix), algorithm=algorithm, heuristic=heuristic)
-                        if result:
-                            self.curr_path = result['path']
-                            steps = result['nb_moves']
-                            self._log(f"Solved in {steps} moves ({result['count_node']} nodes explored, {result['max_node']} max in memory)", color="green")
-                            self.goal = self.algo.goal.tolist()
-                            self.playing = False
-                            self.window['-PLAY-PAUSE-'].update("▶")
-                            self.window['-SLIDER-'].update(range=(0, steps), value=0)
-                            self.window['-STEP-LABEL-'].update(f"0 / {steps}")
-                            self.window['-TIMELINE-'].update(visible=True)
-                            self._refresh_grid(self.curr_path[0].tolist())
-                        else:
-                            self._log("No solution found.", color="red")
+                        self.window['-PROGRESS-ROW-'].update(visible=True)
+                        self.window['-PROGRESS-'].Widget.start(12)
+                        self.window['-SOLVE-'].update(disabled=True)
+                        threading.Thread(
+                            target=self._solve_thread,
+                            args=(np.array(self.file._matrix), algorithm, heuristic),
+                            daemon=True
+                        ).start()
                 else:
                     self._log("No file loaded", color="orange")
+
+            elif event == '-SOLVE-DONE-':
+                self.window['-PROGRESS-'].Widget.stop()
+                self.window['-PROGRESS-ROW-'].update(visible=False)
+                self.window['-SOLVE-'].update(disabled=False)
+                result = values['-SOLVE-DONE-']
+                if result:
+                    self.curr_path = result['path']
+                    steps = result['nb_moves']
+                    self._log(f"Solved in {steps} moves ({result['count_node']} nodes explored, {result['max_node']} max in memory)", color="green")
+                    self.goal = self.algo.goal.tolist()
+                    self.playing = False
+                    self.window['-PLAY-PAUSE-'].update("▶")
+                    self.window['-SLIDER-'].update(range=(0, steps), value=0)
+                    self.window['-STEP-LABEL-'].update(f"0 / {steps}")
+                    self.window['-TIMELINE-'].update(visible=True)
+                    self._refresh_grid(self.curr_path[0].tolist())
+                else:
+                    self._log("No solution found.", color="red")
 
             # playback
             elif event == '-SLIDER-':

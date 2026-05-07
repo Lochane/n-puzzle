@@ -259,20 +259,25 @@ class Solver:
 		self.input = input
 		self.N = len(self.input)
 		self.goal = self.snail_solution()
+
+		self.goal_index = {}
+		for i in range(0, len(self.input.flatten())):
+			self.goal_index[self.goal.flatten()[i]] = i
+
+		self.goal_index_arr = np.zeros(self.N * self.N, dtype=np.int64)
+		for value, idx in self.goal_index.items():
+			self.goal_index_arr[value] = idx
+	
+		if not self.is_solvable(self.input, self.goal):
+			print("Puzzle not solvable.")
+			return
+
 		if algorithm == 'uniform':
 			heuristic = 'zero'
 		h_func = self.heuristics[heuristic]
 		print(algorithm)
 		algo = self.algos[algorithm]
 
-		for i in range(0, len(self.input.flatten())):
-			self.goal_index[self.goal.flatten()[i]] = i
 		
-		self.goal_index_arr = np.zeros(self.N * self.N, dtype=np.int64)
-		for value, idx in self.goal_index.items():
-			self.goal_index_arr[value] = idx
 
-		if not self.is_solvable(self.input, self.goal):
-			print("Puzzle not solvable.")
-			return
 		return algo(h_func)
